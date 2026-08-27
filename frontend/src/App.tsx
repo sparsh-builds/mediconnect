@@ -12,6 +12,8 @@ import NotFound from "./pages/NotFound";
 import HospitalDashboard from "./pages/HospitalDashBoard";
 import BloodBankDashboard from "./pages/BloodBankDashboard";
 import ProtectedRoute from "./components/ProtectedRoute"; // Import the ProtectedRoute
+import Login from "./pages/Login"
+
 
 const queryClient = new QueryClient();
 
@@ -27,6 +29,7 @@ const App = () => (
           <Route path="/bloodbanks" element={<BloodBanks />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/developer" element={<Developer />} />
+          <Route path="/login" element={<Login />} />
           
           {/* Protected Routes */}
           <Route 
