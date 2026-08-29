@@ -1,7 +1,7 @@
 // src/components/CreateTestUsers.tsx (optional - for development)
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebaseconfig";
+import { auth } from "../firebaseconfig";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

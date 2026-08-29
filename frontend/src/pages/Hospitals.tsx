@@ -9,18 +9,19 @@ import {
   Bed,
   Users,
   Clock,
-  Hospital,
+  Hospital as HospitalIcon,
   Search,
   Filter,
   LocateFixed,
   Ambulance,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   Navigation,
+  Activity,
+  ShieldCheck,
 } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
 import {
   subscribeToHospitals,
   getDistance,
@@ -38,7 +39,6 @@ const Hospitals = () => {
   const [emergencyFilter, setEmergencyFilter] = useState("all");
   const [expandedHospital, setExpandedHospital] = useState<string | null>(null);
 
-  // Subscribe to real-time updates from Firestore
   useEffect(() => {
     const unsubscribe = subscribeToHospitals((data) => {
       setHospitals(data);
@@ -49,9 +49,9 @@ const Hospitals = () => {
   const getBedAvailabilityColor = (available?: number, total?: number) => {
     if (!available || !total) return "border-gray-300 text-gray-500";
     const percentage = (available / total) * 100;
-    if (percentage > 30) return "border-green-500 text-green-600 bg-green-50";
-    if (percentage > 10) return "border-yellow-500 text-yellow-600 bg-yellow-50";
-    return "border-red-500 text-red-600 bg-red-50";
+    if (percentage > 30) return "border-emerald-500 text-emerald-600 bg-emerald-50";
+    if (percentage > 10) return "border-amber-500 text-amber-600 bg-amber-50";
+    return "border-rose-500 text-rose-600 bg-rose-50";
   };
 
   const getBedAvailabilityPercentage = (available?: number, total?: number) => {
@@ -59,7 +59,6 @@ const Hospitals = () => {
     return (available / total) * 100;
   };
 
-  // Distance calculator and sorting
   const sortHospitalsByDistance = useCallback((list: HospitalType[], lat: number, lng: number) => {
     return [...list].sort((a, b) => {
       const distA = a.lat && a.lng ? getDistance(lat, lng, a.lat, a.lng) : Number.POSITIVE_INFINITY;
@@ -68,7 +67,6 @@ const Hospitals = () => {
     });
   }, []);
 
-  // Near Me trigger with browser Geolocation and IP fallback
   const handleSearchMyLocation = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -95,7 +93,6 @@ const Hospitals = () => {
     }
   }, []);
 
-  // Filter and sort pipeline
   useEffect(() => {
     let result = [...hospitals];
 
@@ -147,133 +144,166 @@ const Hospitals = () => {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-background flex flex-col justify-between">
       <Header />
 
-      {/* Hero Search Section */}
-      <div className="bg-blue-600 text-white py-12 md:py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-5xl font-bold mb-3">Live Hospital Bed Availability</h1>
-            <p className="text-blue-100 max-w-xl mx-auto text-base md:text-lg">
-              Check real-time ICU, ventilator, and general bed capacity before heading to emergency care.
-            </p>
+      <main className="flex-1">
+        {/* High-Contrast Hero Banner */}
+        <section className="relative overflow-hidden bg-slate-950 text-white py-16 lg:py-24 border-b border-slate-800">
+          <div className="absolute inset-0 z-0 opacity-20">
+            <img
+              src="/hospital-bed.jpg"
+              alt="ICU and Emergency Care Bed"
+              className="w-full h-full object-cover object-center"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=1600";
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-slate-950/60" />
           </div>
 
-          <div className="max-w-3xl mx-auto bg-white p-4 md:p-6 rounded-2xl shadow-xl text-gray-800">
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="flex-1 relative">
-                <MapPin className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                <Input
-                  placeholder="Search by hospital name, city, or pincode..."
-                  className="pl-10 h-12 text-base"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+          <div className="container mx-auto px-4 relative z-10 max-w-5xl">
+            <div className="max-w-2xl space-y-3 mb-8">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-400 backdrop-blur-md">
+                <Activity className="w-3.5 h-3.5 animate-pulse" />
+                Live Telemetry & Bed Occupancy Network
               </div>
-              <Button className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white">
-                <Search className="w-4 h-4 mr-2" /> Search
-              </Button>
+
+              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                Live Hospital Bed Availability
+              </h1>
+
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                Check real-time ICU, Ventilator, and General ward capacity across regional facilities to make informed emergency admissions without transit delays.
+              </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                variant="outline"
-                className={`flex-1 h-11 ${userLat ? "border-blue-600 text-blue-600 bg-blue-50" : ""}`}
-                onClick={handleSearchMyLocation}
-              >
-                <LocateFixed className="w-4 h-4 mr-2" />
-                {userLat ? "Location Active (Sorted by Distance)" : "Find Near Me"}
-              </Button>
-
-              <Button
-                variant="outline"
-                className="flex-1 h-11"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filter Options
-                {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-              </Button>
-            </div>
-
-            {showFilters && (
-              <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                    Bed Capacity
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {["all", "high", "medium", "low"].map((type) => (
-                      <Button
-                        key={type}
-                        size="sm"
-                        variant={bedFilter === type ? "default" : "outline"}
-                        className="capitalize text-xs"
-                        onClick={() => setBedFilter(type)}
-                      >
-                        {type === "all" ? "All" : `${type} stock`}
-                      </Button>
-                    ))}
-                  </div>
+            {/* Form Widget */}
+            <div className="max-w-3xl bg-slate-900/95 p-4 md:p-5 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-xl">
+              <div className="flex flex-col sm:flex-row gap-2.5 mb-3">
+                <div className="flex-1 relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by hospital name, city, or pincode..."
+                    className="pl-10 h-12 bg-slate-950 border-slate-700 text-white placeholder:text-slate-400 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-blue-500"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
                 </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                    Emergency Unit
-                  </label>
-                  <div className="flex gap-2">
-                    {["all", "open", "closed"].map((status) => (
-                      <Button
-                        key={status}
-                        size="sm"
-                        variant={emergencyFilter === status ? "default" : "outline"}
-                        className="capitalize text-xs"
-                        onClick={() => setEmergencyFilter(status)}
-                      >
-                        {status === "all" ? "All" : `ER ${status}`}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                <Button className="h-12 px-7 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shrink-0">
+                  <Search className="w-4 h-4 mr-2" /> Search
+                </Button>
               </div>
-            )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  className={`flex-1 h-11 px-4 text-xs font-semibold rounded-xl border flex items-center justify-center transition-all ${
+                    userLat
+                      ? "border-emerald-500 text-emerald-400 bg-emerald-950/40"
+                      : "border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white"
+                  }`}
+                  onClick={handleSearchMyLocation}
+                >
+                  <LocateFixed className="w-4 h-4 mr-2 text-blue-400" />
+                  {userLat ? "Location Active (Sorted by Distance)" : "Find Near Me"}
+                </button>
+
+                <button
+                  type="button"
+                  className="flex-1 h-11 px-4 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-all"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="w-4 h-4 mr-2 text-blue-400" />
+                  Filter Options
+                  {showFilters ? <ChevronUp className="w-4 h-4 ml-1.5" /> : <ChevronDown className="w-4 h-4 ml-1.5" />}
+                </button>
+              </div>
+
+              {/* Filter Panel */}
+              {showFilters && (
+                <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                      Bed Capacity
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {["all", "high", "medium", "low"].map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className={`capitalize text-xs h-8 px-3 rounded-lg font-medium border transition-all ${
+                            bedFilter === type
+                              ? "bg-blue-600 text-white border-blue-500 font-semibold"
+                              : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          }`}
+                          onClick={() => setBedFilter(type)}
+                        >
+                          {type === "all" ? "All" : `${type} stock`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                      Emergency Unit Status
+                    </label>
+                    <div className="flex gap-2">
+                      {["all", "open", "closed"].map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          className={`capitalize text-xs h-8 px-3 rounded-lg font-medium border transition-all ${
+                            emergencyFilter === status
+                              ? "bg-blue-600 text-white border-blue-500 font-semibold"
+                              : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          }`}
+                          onClick={() => setEmergencyFilter(status)}
+                        >
+                          {status === "all" ? "All" : `ER ${status}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Hospital Cards List */}
-      <section className="py-12 bg-gray-50 min-h-[500px]">
-        <div className="container mx-auto px-4 max-w-5xl">
+        {/* Hospital Telemetry Cards List */}
+        <section className="py-10 container mx-auto px-4 max-w-6xl">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">
-              {filteredHospitals.length} {filteredHospitals.length === 1 ? "Facility" : "Facilities"} Listed
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              {filteredHospitals.length} {filteredHospitals.length === 1 ? "Facility" : "Facilities"} Connected
             </h2>
           </div>
 
           {filteredHospitals.length === 0 ? (
-            <Card className="text-center py-12">
+            <Card className="text-center py-12 border">
               <CardContent>
-                <Hospital className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                <h3 className="text-lg font-semibold text-gray-700">No facilities found</h3>
-                <p className="text-sm text-gray-500">Try changing your search terms or filters.</p>
+                <HospitalIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3 opacity-50" />
+                <h3 className="text-lg font-semibold text-foreground">No facilities found</h3>
+                <p className="text-sm text-muted-foreground">Try changing your search terms or filters.</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
               {filteredHospitals.map((hospital) => {
                 const bedPercentage = getBedAvailabilityPercentage(hospital.availableBeds, hospital.totalBeds);
-                const bedColor = getBedAvailabilityColor(hospital.availableBeds, hospital.totalBeds);
                 const distanceKm =
                   userLat && userLng && hospital.lat && hospital.lng
                     ? getDistance(userLat, userLng, hospital.lat, hospital.lng).toFixed(1)
                     : null;
 
                 return (
-                  <Card key={hospital.id} className="overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition">
+                  <Card key={hospital.id} className="overflow-hidden border hover:shadow-lg transition">
                     <div
                       className={`h-1.5 w-full ${
-                        bedPercentage >= 30 ? "bg-emerald-500" : bedPercentage >= 10 ? "bg-amber-500" : "bg-red-500"
+                        bedPercentage >= 30 ? "bg-emerald-500" : bedPercentage >= 10 ? "bg-amber-500" : "bg-rose-500"
                       }`}
                     />
 
@@ -281,11 +311,11 @@ const Hospitals = () => {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <CardTitle className="text-lg md:text-xl font-bold text-gray-900">
+                            <CardTitle className="text-lg font-bold text-foreground">
                               {hospital.name}
                             </CardTitle>
                             {hospital.emergencyOpen ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs">
+                              <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
                                 <Ambulance className="w-3 h-3 mr-1" /> ER Open
                               </Badge>
                             ) : (
@@ -293,13 +323,13 @@ const Hospitals = () => {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-4 text-xs text-gray-500 mt-1 flex-wrap">
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
                             <span className="flex items-center gap-1">
                               <MapPin className="w-3.5 h-3.5" />
                               {hospital.location} {hospital.pincode ? `(${hospital.pincode})` : ""}
                             </span>
                             {distanceKm && (
-                              <span className="flex items-center gap-1 font-semibold text-blue-600">
+                              <span className="flex items-center gap-1 font-semibold text-primary">
                                 <Clock className="w-3.5 h-3.5" />
                                 {distanceKm} km away
                               </span>
@@ -323,49 +353,51 @@ const Hospitals = () => {
 
                     <CardContent className="pt-2">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                        <div className="p-3 bg-gray-50 rounded-lg border">
-                          <div className="text-xs text-gray-500 font-medium">Available General</div>
-                          <div className="text-xl font-bold text-gray-900 mt-1">
+                        <div className="p-3 bg-muted/40 rounded-lg border">
+                          <div className="text-xs text-muted-foreground font-medium">Available General</div>
+                          <div className="text-xl font-bold text-foreground mt-1">
                             {hospital.availableBeds || 0}
-                            <span className="text-xs text-gray-400 font-normal"> / {hospital.totalBeds || 0}</span>
+                            <span className="text-xs text-muted-foreground font-normal"> / {hospital.totalBeds || 0}</span>
                           </div>
                         </div>
 
-                        <div className="p-3 bg-red-50/50 rounded-lg border border-red-100">
-                          <div className="text-xs text-red-600 font-medium">ICU Beds</div>
-                          <div className="text-xl font-bold text-red-700 mt-1">{hospital.icuBeds || 0}</div>
+                        <div className="p-3 bg-rose-500/10 rounded-lg border border-rose-500/20">
+                          <div className="text-xs text-rose-600 font-medium">ICU Beds</div>
+                          <div className="text-xl font-bold text-rose-600 mt-1">{hospital.icuBeds || 0}</div>
                         </div>
 
-                        <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                          <div className="text-xs text-blue-600 font-medium">Ventilators</div>
-                          <div className="text-xl font-bold text-blue-700 mt-1">{hospital.ventilatorBeds || 0}</div>
+                        <div className="p-3 bg-sky-500/10 rounded-lg border border-sky-500/20">
+                          <div className="text-xs text-sky-600 font-medium">Ventilators</div>
+                          <div className="text-xl font-bold text-sky-600 mt-1">{hospital.ventilatorBeds || 0}</div>
                         </div>
 
-                        <div className="p-3 bg-gray-50 rounded-lg border">
-                          <div className="text-xs text-gray-500 font-medium">Wait Time</div>
-                          <div className="text-xl font-bold text-gray-900 mt-1">
+                        <div className="p-3 bg-muted/40 rounded-lg border">
+                          <div className="text-xs text-muted-foreground font-medium">Wait Time</div>
+                          <div className="text-xl font-bold text-foreground mt-1">
                             {hospital.waitTime ? `${hospital.waitTime}m` : "Minimal"}
                           </div>
                         </div>
                       </div>
 
                       {expandedHospital === hospital.id && (
-                        <div className="p-4 bg-gray-50 rounded-lg text-xs space-y-2 mb-4 border">
+                        <div className="p-4 bg-muted/40 rounded-lg text-xs space-y-2 mb-4 border">
                           {hospital.specialties && hospital.specialties.length > 0 && (
                             <div>
-                              <span className="font-semibold text-gray-700">Specialties: </span>
-                              <span>{hospital.specialties.join(", ")}</span>
+                              <span className="font-semibold text-foreground">Specialties: </span>
+                              <span className="text-muted-foreground">{hospital.specialties.join(", ")}</span>
                             </div>
                           )}
                           {hospital.notes && (
                             <div>
-                              <span className="font-semibold text-gray-700">Facility Notice: </span>
-                              <span>{hospital.notes}</span>
+                              <span className="font-semibold text-foreground">Facility Notice: </span>
+                              <span className="text-muted-foreground">{hospital.notes}</span>
                             </div>
                           )}
                           <div>
-                            <span className="font-semibold text-gray-700">Last Verified: </span>
-                            <span>{new Date(hospital.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="font-semibold text-foreground">Last Verified: </span>
+                            <span className="text-muted-foreground">
+                              {hospital.lastUpdated ? new Date(hospital.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Live Sync"}
+                            </span>
                           </div>
                         </div>
                       )}
@@ -373,14 +405,14 @@ const Hospitals = () => {
                       <div className="flex flex-col sm:flex-row gap-3 pt-2">
                         <Button
                           onClick={() => openGoogleMaps(hospital)}
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                         >
                           <Navigation className="w-4 h-4 mr-2" /> Get Directions
                         </Button>
                         {hospital.phone && (
                           <Button
                             variant="outline"
-                            className="flex-1 border-gray-300"
+                            className="flex-1 border"
                             onClick={() => (window.location.href = `tel:${hospital.phone}`)}
                           >
                             <Phone className="w-4 h-4 mr-2 text-emerald-600" /> Call {hospital.phone}
@@ -393,11 +425,11 @@ const Hospitals = () => {
               })}
             </div>
           )}
-        </div>
-      </section>
+        </section>
+      </main>
 
       <Footer />
-    </>
+    </div>
   );
 };
 

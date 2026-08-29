@@ -2,7 +2,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../firebaseconfig";
+import { auth, db } from "@/firebaseconfig";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,6 @@ export default function Admin() {
   const [regCity, setRegCity] = useState("");
   const [regAddress, setRegAddress] = useState("");
 
-  // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -40,14 +39,12 @@ export default function Admin() {
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       const user = userCredential.user;
 
-      // Check role in users collection
       const userDoc = await getDoc(doc(db, "users", user.uid));
       let role = "hospital";
 
       if (userDoc.exists()) {
         role = userDoc.data().role;
       } else {
-        // Fallback: check blood_banks collection
         const bankDoc = await getDoc(doc(db, "blood_banks", user.uid));
         if (bankDoc.exists()) role = "bloodbank";
       }
@@ -59,6 +56,8 @@ export default function Admin() {
 
       if (role === "bloodbank") {
         navigate("/bloodbank-dashboard");
+      } else if (role === "admin") {
+        navigate("/admin-dashboard");
       } else {
         navigate("/hospital-dashboard");
       }
@@ -74,7 +73,6 @@ export default function Admin() {
     }
   };
 
-  // Handle Facility Self-Registration
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName || !regEmail || !regPassword || !regPhone) {
@@ -88,16 +86,16 @@ export default function Admin() {
       const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
       const uid = userCredential.user.uid;
 
-      // 1. Create User Role record
+      // 1. Create User record
       await setDoc(doc(db, "users", uid), {
         email: regEmail,
         role: facilityType,
         createdAt: serverTimestamp(),
       });
 
-      // 2. Initialize Facility Document
+      // 2. Initialize Facility Document in both collections for backward compatibility
       if (facilityType === "hospital") {
-        await setDoc(doc(db, "hospitals", uid), {
+        const hospitalData = {
           name: regName,
           location: regCity,
           address: regAddress,
@@ -109,9 +107,10 @@ export default function Admin() {
           emergencyOpen: true,
           lastUpdated: new Date().toISOString(),
           createdAt: serverTimestamp(),
-        });
+        };
+        await setDoc(doc(db, "hospitals", uid), hospitalData);
       } else {
-        await setDoc(doc(db, "blood_banks", uid), {
+        const bloodBankData = {
           bankInfo: {
             name: regName,
             address: regAddress,
@@ -119,20 +118,29 @@ export default function Admin() {
             phone: regPhone,
             hours: "24/7",
           },
+          name: regName,
+          location: regCity,
+          contact: regPhone,
+          stock: {
+            "A+": 0, "A-": 0, "B+": 0, "B-": 0,
+            "AB+": 0, "AB-": 0, "O+": 0, "O-": 0,
+          },
           bloodStock: {
             "A+": 0, "A-": 0, "B+": 0, "B-": 0,
             "AB+": 0, "AB-": 0, "O+": 0, "O-": 0,
           },
           lastUpdated: new Date().toISOString(),
           createdAt: serverTimestamp(),
-        });
+        };
+        await setDoc(doc(db, "blood_banks", uid), bloodBankData);
+        await setDoc(doc(db, "bloodbanks", uid), bloodBankData);
       }
 
       localStorage.setItem("userType", facilityType);
       localStorage.setItem("uid", uid);
 
       toast({
-        title: "🎉 Facility Registered!",
+        title: "Facility Registered!",
         description: "Your dashboard is ready to update live bed and blood stock.",
       });
 
@@ -154,7 +162,7 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-12 max-w-lg">
@@ -168,15 +176,15 @@ export default function Admin() {
           <TabsContent value="login">
             <Card className="shadow-md border">
               <CardHeader className="text-center pb-4">
-                <CardTitle className="text-2xl font-bold text-gray-900">Portal Login</CardTitle>
-                <p className="text-xs text-gray-500">Access your hospital or blood bank inventory dashboard</p>
+                <CardTitle className="text-2xl font-bold text-foreground">Portal Login</CardTitle>
+                <p className="text-xs text-muted-foreground">Access your hospital or blood bank inventory dashboard</p>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="login-email">Registered Email</Label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                      <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
                       <Input
                         id="login-email"
                         type="email"
@@ -192,7 +200,7 @@ export default function Admin() {
                   <div className="space-y-1.5">
                     <Label htmlFor="login-password">Password</Label>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                      <Lock className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
                       <Input
                         id="login-password"
                         type="password"
@@ -205,7 +213,7 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11">
+                  <Button type="submit" disabled={isLoading} className="w-full h-11">
                     {isLoading ? "Authenticating..." : "Sign In to Dashboard"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
@@ -218,8 +226,8 @@ export default function Admin() {
           <TabsContent value="register">
             <Card className="shadow-md border">
               <CardHeader className="text-center pb-4">
-                <CardTitle className="text-2xl font-bold text-gray-900">Register New Facility</CardTitle>
-                <p className="text-xs text-gray-500">Add your hospital or blood bank to the MediConnect network</p>
+                <CardTitle className="text-2xl font-bold text-foreground">Register New Facility</CardTitle>
+                <p className="text-xs text-muted-foreground">Add your hospital or blood bank to the MediConnect network</p>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleRegister} className="space-y-4">
@@ -229,7 +237,6 @@ export default function Admin() {
                       <Button
                         type="button"
                         variant={facilityType === "hospital" ? "default" : "outline"}
-                        className={facilityType === "hospital" ? "bg-blue-600 hover:bg-blue-700" : ""}
                         onClick={() => setFacilityType("hospital")}
                       >
                         <Hospital className="w-4 h-4 mr-2" /> Hospital
@@ -237,7 +244,7 @@ export default function Admin() {
                       <Button
                         type="button"
                         variant={facilityType === "bloodbank" ? "default" : "outline"}
-                        className={facilityType === "bloodbank" ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                        className={facilityType === "bloodbank" ? "bg-rose-600 hover:bg-rose-700 text-white" : ""}
                         onClick={() => setFacilityType("bloodbank")}
                       >
                         <Droplet className="w-4 h-4 mr-2" /> Blood Bank
@@ -248,7 +255,7 @@ export default function Admin() {
                   <div className="space-y-1.5">
                     <Label htmlFor="reg-name">Facility Name *</Label>
                     <div className="relative">
-                      <Building className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                      <Building className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
                       <Input
                         id="reg-name"
                         placeholder="e.g. Metro Care Hospital"
@@ -289,7 +296,7 @@ export default function Admin() {
                     <div className="space-y-1.5">
                       <Label htmlFor="reg-phone">Contact Phone *</Label>
                       <div className="relative">
-                        <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <Phone className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
                         <Input
                           id="reg-phone"
                           type="tel"
@@ -304,7 +311,7 @@ export default function Admin() {
                     <div className="space-y-1.5">
                       <Label htmlFor="reg-city">City *</Label>
                       <div className="relative">
-                        <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <MapPin className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
                         <Input
                           id="reg-city"
                           placeholder="City"
@@ -327,7 +334,7 @@ export default function Admin() {
                     />
                   </div>
 
-                  <Button type="submit" disabled={isLoading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11">
+                  <Button type="submit" disabled={isLoading} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white">
                     {isLoading ? "Creating Facility..." : "Complete Registration"}
                   </Button>
                 </form>

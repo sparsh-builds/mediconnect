@@ -2,7 +2,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
-import { auth, db } from "../../firebaseconfig";
+import { auth, db } from "../firebaseconfig";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

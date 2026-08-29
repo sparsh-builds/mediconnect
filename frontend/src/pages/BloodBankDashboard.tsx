@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../firebaseconfig";
+import { auth, db } from "../firebaseconfig";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

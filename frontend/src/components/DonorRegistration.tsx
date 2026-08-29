@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../firebaseconfig';
+import { db } from '../firebaseconfig';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

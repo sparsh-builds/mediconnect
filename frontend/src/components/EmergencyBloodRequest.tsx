@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../firebaseconfig"; // Adjust the import path as necessary
+import { db } from "../firebaseconfig"; // Adjust the import path as necessary
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

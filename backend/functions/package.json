@@ -1,0 +1,13 @@
+{
+  "name": "mediconnect-seed",
+  "version": "1.0.0",
+  "description": "Seed script for MediConnect Firestore backend",
+  "main": "seed.js",
+  "type": "commonjs",
+  "scripts": {
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  }
+}
