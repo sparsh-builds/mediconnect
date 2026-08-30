@@ -1,38 +1,29 @@
-/**
- * MediConnect — Firestore Seed Script
- * ----------------------------------------------------------------------------
- * Populates:
- *   - Auth users + users/{uid} docs for 3 demo accounts (1 doctor, 1 hospital,
- *     1 blood bank owner) so RBAC in firestore.rules is testable out of the box.
- *   - 6 verified doctors (with slots)
- *   - 3 hospitals (with ICU/oxygen/general bed telemetry)
- *   - 3 blood banks (with full 8-group inventories)
- *
- * Usage:
- *   1. Download a service account key from
- *      Firebase Console > Project Settings > Service Accounts > Generate new private key
- *   2. Save it as ./serviceAccountKey.json in this directory (DO NOT commit it).
- *   3. npm install
- *   4. npm run seed
- *
- * Safe to re-run: it upserts by fixed doc IDs, so re-running just overwrites
- * the same seed records rather than duplicating them.
- * ----------------------------------------------------------------------------
- */
-
 const admin = require("firebase-admin");
-const path = require("path");
+const serviceAccount = require("./serviceAccountKey.json");
 
-const serviceAccount = require(path.join(__dirname, "serviceAccountKey.json"));
+// Handle both CommonJS default export and named export patterns
+const credential = admin.credential 
+  ? admin.credential.cert(serviceAccount)
+  : admin.default?.credential 
+    ? admin.default.credential.cert(serviceAccount)
+    : null;
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+if (!admin.apps.length) {
+  if (credential) {
+    admin.initializeApp({
+      credential: credential,
+    });
+  } else {
+    // Modular fallback
+    const { cert } = require("firebase-admin/app");
+    admin.initializeApp({
+      credential: cert(serviceAccount),
+    });
+  }
+}
 
 const db = admin.firestore();
 const auth = admin.auth();
-
-const now = admin.firestore.FieldValue.serverTimestamp();
 
 // ----------------------------------------------------------------------------
 // Demo auth accounts (so hospital/doctor/bloodbank ownership rules work)
