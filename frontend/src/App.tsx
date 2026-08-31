@@ -4,23 +4,23 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "../src/components/ProtectedRoute";
-import Doctors from "./pages/Doctors";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Common Pages
 import Home from "./pages/Index";
-import Auth from "./pages/Auth"; // Unified login/signup
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Developer from "./pages/Developer";
 
 // OPD Booking Pages
+import Doctors from "./pages/Doctors";
 import BookAppointment from "./pages/BookAppointment";
 import Payment from "./pages/Payment";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 
-// Hospital Bed & Blood Bank Public Pages
+// Hospital Bed & Blood Bank Public Discovery Pages
 import Hospitals from "./pages/Hospitals";
 import BloodBanks from "./pages/BloodBanks";
 
@@ -35,13 +35,19 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <AuthProvider>
           <Routes>
-            {/* Public Hub & Discovery Routes */}
+            {/* Public Discovery Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
+            <Route path="/doctors" element={<Doctors />} />
             <Route path="/hospitals" element={<Hospitals />} />
             <Route path="/bloodbanks" element={<BloodBanks />} />
             <Route path="/developer" element={<Developer />} />
@@ -58,7 +64,7 @@ const App = () => (
             <Route
               path="/payment"
               element={
-                <ProtectedRoute allowedRoles={["patient"]}>
+                <ProtectedRoute allowedRoles={["patient", "admin"]}>
                   <Payment />
                 </ProtectedRoute>
               }
@@ -66,7 +72,7 @@ const App = () => (
             <Route
               path="/patient-dashboard"
               element={
-                <ProtectedRoute allowedRoles={["patient"]}>
+                <ProtectedRoute allowedRoles={["patient", "admin"]}>
                   <PatientDashboard />
                 </ProtectedRoute>
               }
@@ -76,7 +82,7 @@ const App = () => (
             <Route
               path="/doctor-dashboard"
               element={
-                <ProtectedRoute allowedRoles={["doctor"]}>
+                <ProtectedRoute allowedRoles={["doctor", "admin"]}>
                   <DoctorDashboard />
                 </ProtectedRoute>
               }
@@ -97,9 +103,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="/doctors" element={<Doctors />} />
 
-            {/* Administration */}
+            {/* Administration Routes */}
             <Route
               path="/admin-dashboard"
               element={
@@ -117,7 +122,7 @@ const App = () => (
               }
             />
 
-            {/* Catch-all */}
+            {/* Catch-all Not Found Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

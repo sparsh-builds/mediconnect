@@ -48,12 +48,12 @@ const HeroSection = () => {
                   <Calendar className="w-4 h-4" /> Book OPD Consultation
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-slate-700 bg-slate-800/60 text-white hover:bg-slate-800 gap-2" asChild>
+              <Button size="lg" variant="outline" className="border-slate-700 bg-slate-800/60 text-white hover:bg-slate-300 gap-2" asChild>
                 <Link to="/hospitals">
                   <BedDouble className="w-4 h-4 text-emerald-400" /> Bed Tracker
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-slate-700 bg-slate-800/60 text-white hover:bg-slate-800 gap-2" asChild>
+              <Button size="lg" variant="outline" className="border-slate-700 bg-slate-800/60 text-white hover:bg-slate-300 gap-2" asChild>
                 <Link to="/bloodbanks">
                   <Droplets className="w-4 h-4 text-rose-400" /> Blood Bank
                 </Link>

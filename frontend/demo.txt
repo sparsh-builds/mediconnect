@@ -1,0 +1,7 @@
+Hospital: cityhospital@mediconnect.demo / MediConnect@2026
+
+Doctor: dr.mehta@mediconnect.demo / MediConnect@2026
+
+Blood Bank: lifeline.bloodbank@mediconnect.demo / MediConnect@2026
+
+patient@mediconnect.demo

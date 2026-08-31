@@ -3,263 +3,368 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, CheckCircle2, Info, Loader2, ShieldCheck, Clock, Building2 } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import {
+  GraduationCap,
+  Languages,
+  MapPin,
+  Share2,
+  Stethoscope,
+  ShieldCheck,
+  Navigation,
+  CalendarCheck,
+  Video,
+  UserCheck,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/firebaseconfig";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+
+const DATES = [
+  { day: "Sun", date: "30", full: "Sunday, Aug 30" },
+  { day: "Mon", date: "31", full: "Monday, Aug 31" },
+  { day: "Tue", date: "1", full: "Tuesday, Sep 1" },
+  { day: "Wed", date: "2", full: "Wednesday, Sep 2" },
+];
+
+const DEFAULT_SLOTS = [
+  "10:00 AM",
+  "10:30 AM",
+  "11:15 AM",
+  "12:10 PM",
+  "12:30 PM",
+  "02:00 PM",
+  "03:15 PM",
+  "04:30 PM",
+];
 
 const BookAppointment = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
-  const [date, setDate] = useState<Date>();
-  const [loading, setLoading] = useState(false);
+  const doctorId = searchParams.get("id") || "doc_kanika_derma";
+  const [doctorName, setDoctorName] = useState(searchParams.get("name") || "Dr. Kanika Roy");
+  const [specialty, setSpecialty] = useState(searchParams.get("specialty") || "Dermatology");
+  const [hospital, setHospital] = useState(searchParams.get("hospital") || "Apollo Hospitals Sector 26");
+  const [avatar, setAvatar] = useState(searchParams.get("avatar") || "/hero-doctor.png");
+  const [fee, setFee] = useState(Number(searchParams.get("fee")) || 1000);
+  const [degrees, setDegrees] = useState("MBBS, MD (DERMATOLOGY & LEPROSY), DNB");
+  const [registrationNo, setRegistrationNo] = useState("DMC/R/22219");
+  const [languages, setLanguages] = useState(["English", "Hindi"]);
+  const [slots, setSlots] = useState<string[]>(DEFAULT_SLOTS);
 
-  const preSelectedDoctor = searchParams.get("doctor") || "";
-  const preSelectedName = searchParams.get("name") || "";
-  const preSelectedSpecialty = searchParams.get("specialty") || "";
-
-  const [formData, setFormData] = useState({
-    name: "",
-    email: user?.email || "",
-    phone: "",
-    doctor: preSelectedName || preSelectedDoctor || "Dr. Sarah Johnson",
-    specialty: preSelectedSpecialty || "Cardiology",
-    timeSlot: "10:00 AM",
-    symptoms: "",
-  });
-
-  useEffect(() => {
-    if (user?.email) {
-      setFormData((prev) => ({ ...prev, email: user.email || "" }));
-    }
-  }, [user]);
+  const [consultationMode, setConsultationMode] = useState<"visit" | "online">("visit");
+  const [selectedDateIndex, setSelectedDateIndex] = useState(0);
+  const [selectedSlot, setSelectedSlot] = useState(DEFAULT_SLOTS[0]);
+  const [activeInfoTab, setActiveInfoTab] = useState<"about" | "edu" | "reg">("about");
 
   useEffect(() => {
-    if (preSelectedName) {
-      setFormData((prev) => ({
-        ...prev,
-        doctor: preSelectedName,
-        specialty: preSelectedSpecialty || "Cardiology",
-      }));
-    }
-  }, [preSelectedName, preSelectedSpecialty]);
+    const fetchDoctorProfile = async () => {
+      try {
+        const docRef = doc(db, "doctors", doctorId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const d = snap.data();
+          if (d.name) setDoctorName(d.name);
+          if (d.specialty) setSpecialty(d.specialty);
+          if (d.hospital) setHospital(d.hospital);
+          if (d.avatar) setAvatar(d.avatar);
+          if (d.fee) setFee(d.fee);
+          if (d.degrees) setDegrees(d.degrees);
+          if (d.registrationNo) setRegistrationNo(d.registrationNo);
+          if (d.languages) setLanguages(d.languages);
+          if (d.slots && d.slots.length > 0) {
+            const open = d.slots.filter((s: any) => !s.isFull).map((s: any) => s.time);
+            if (open.length > 0) {
+              setSlots(open);
+              setSelectedSlot(open[0]);
+            }
+          }
+        }
+      } catch (e) {
+        console.log("Using URL query parameter fallback.");
+      }
+    };
+    fetchDoctorProfile();
+  }, [doctorId]);
 
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!date) {
-      toast.error("Please select a date for your appointment.");
+  const handleSchedule = () => {
+    if (!selectedSlot) {
+      toast.error("Please pick an available consultation window.");
       return;
     }
-    if (!formData.timeSlot) {
-      toast.error("Please select a time slot.");
-      return;
-    }
 
-    setLoading(true);
-    try {
-      await addDoc(collection(db, "appointments"), {
-        patientId: user?.uid || "guest",
-        patientName: formData.name,
-        patientEmail: formData.email,
-        patientPhone: formData.phone,
-        doctor: formData.doctor,
-        specialty: formData.specialty,
-        date: format(date, "PPP"),
-        time: formData.timeSlot,
-        symptoms: formData.symptoms,
-        status: "confirmed",
-        paymentStatus: "paid",
-        createdAt: serverTimestamp(),
-      });
+    const payload = {
+      doctorId,
+      doctor: doctorName,
+      specialty,
+      hospital,
+      consultationMode: consultationMode === "visit" ? "In-Clinic Visit" : "Online Video Call",
+      date: DATES[selectedDateIndex].full,
+      time: selectedSlot,
+      fee,
+      patientId: user?.uid || "guest",
+      patientEmail: user?.email || "patient@mediconnect.demo",
+      patientName: user?.name || user?.email?.split("@")[0] || "Rahul Verma",
+      createdAt: new Date().toISOString(),
+    };
 
-      toast.success("Appointment booked successfully!", {
-        description: "Redirecting to your dashboard...",
-      });
-
-      setTimeout(() => {
-        navigate("/patient-dashboard");
-      }, 1000);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to book appointment");
-    } finally {
-      setLoading(false);
-    }
+    sessionStorage.setItem("pendingBooking", JSON.stringify(payload));
+    navigate("/payment");
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Header />
 
-      <main className="container mx-auto px-4 py-10 max-w-5xl flex-1">
+      <main className="container mx-auto px-4 py-8 max-w-6xl flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Visual Card: Clinic Facility Image */}
-          <div className="lg:col-span-5 space-y-4">
-            <Card className="overflow-hidden border shadow-md">
-              <div className="relative h-56 bg-slate-900">
-                <img
-                  src="/clinic-facility.jpg"
-                  alt="Modern OPD Medical Center"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=600";
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-3 text-white">
-                  <p className="font-bold text-sm">NABH Accredited Clinical Suites</p>
-                  <p className="text-[11px] text-slate-300">Sterilized modern consulting rooms</p>
+          {/* Left Column: Doctor Profile & Clinical Credentials */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs relative">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Doctor clinical profile copied!");
+                }}
+                className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                title="Share Profile"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-start gap-5">
+                <div className="relative shrink-0">
+                  <img
+                    src={avatar || "/hero-doctor.png"}
+                    alt={doctorName}
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover object-top border border-slate-100 shadow-inner bg-slate-50"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/hero-doctor.png";
+                    }}
+                  />
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-900 text-emerald-400 border border-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                    VERIFIED MD
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 flex-1 pr-6">
+                  <h1 className="text-2xl font-bold text-slate-900">{doctorName}</h1>
+                  <p className="text-sm font-semibold text-sky-800">{specialty}</p>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-600 pt-1">
+                    <GraduationCap className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>{degrees}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <Languages className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>{languages.join(", ")}</span>
+                  </div>
                 </div>
               </div>
 
-              <CardContent className="p-4 space-y-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2 text-foreground font-semibold">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Digital Token Queue Verification</span>
+              {/* Verified Facility Card */}
+              <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{hospital}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 pl-5 leading-relaxed">
+                    Main Medical Complex, Sector 26, Sonipat, 131001
+                  </p>
                 </div>
-                <p>
-                  Your consultation token guarantees entry within your scheduled 30-minute window without lobby waiting.
-                </p>
-              </CardContent>
-            </Card>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-sky-700 hover:text-sky-800 text-xs font-semibold gap-1 shrink-0"
+                  onClick={() =>
+                    window.open(
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hospital)}`,
+                      "_blank"
+                    )
+                  }
+                >
+                  <Navigation className="w-3.5 h-3.5" /> Directions
+                </Button>
+              </div>
+            </div>
+
+            {/* Credential Tabs */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+              <div className="flex gap-2 border-b border-slate-100 pb-3">
+                <button
+                  type="button"
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    activeInfoTab === "about"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                  onClick={() => setActiveInfoTab("about")}
+                >
+                  Doctor Profile
+                </button>
+                <button
+                  type="button"
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    activeInfoTab === "edu"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                  onClick={() => setActiveInfoTab("edu")}
+                >
+                  Qualifications
+                </button>
+                <button
+                  type="button"
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    activeInfoTab === "reg"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                  onClick={() => setActiveInfoTab("reg")}
+                >
+                  Medical Registry
+                </button>
+              </div>
+
+              {activeInfoTab === "about" && (
+                <div className="text-xs text-slate-600 space-y-2 leading-relaxed">
+                  <p>
+                    • {doctorName} is a certified specialist at {hospital}. Practicing clinical diagnostics and patient-first medical treatments.
+                  </p>
+                  <p>• Verified token consultation fee: ₹{fee} (Includes digital entry pass).</p>
+                </div>
+              )}
+
+              {activeInfoTab === "edu" && (
+                <div className="space-y-2 text-xs text-slate-700">
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
+                    <GraduationCap className="w-4 h-4 text-sky-600" />
+                    <span>Education Qualifications</span>
+                  </div>
+                  <p className="pl-6 text-slate-600">{degrees}</p>
+                </div>
+              )}
+
+              {activeInfoTab === "reg" && (
+                <div className="space-y-2 text-xs text-slate-700">
+                  <div className="flex items-center gap-2 font-semibold text-slate-900">
+                    <Stethoscope className="w-4 h-4 text-emerald-600" />
+                    <span>State Medical Council Registration</span>
+                  </div>
+                  <p className="pl-6 text-slate-600">{registrationNo}</p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right: Booking Form */}
-          <div className="lg:col-span-7">
-            <Card className="shadow-md border">
-              <CardHeader>
-                <CardTitle className="text-xl">Book Consultation Token</CardTitle>
-                <CardDescription>
-                  {preSelectedName ? `Scheduling with ${preSelectedName}` : "Choose your specialist and appointment slot"}
-                </CardDescription>
-                {preSelectedName && (
-                  <Alert className="mt-2">
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      Booking appointment with <strong>{preSelectedName}</strong> ({preSelectedSpecialty})
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="name" className="text-xs font-semibold">Patient Name *</Label>
-                      <Input
-                        id="name"
-                        required
-                        placeholder="John Doe"
-                        value={formData.name}
-                        onChange={(e) => handleChange("name", e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="phone" className="text-xs font-semibold">Phone *</Label>
-                      <Input
-                        id="phone"
-                        required
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={formData.phone}
-                        onChange={(e) => handleChange("phone", e.target.value)}
-                      />
-                    </div>
+          {/* Right Column: Slot Selection Matrix */}
+          <div className="lg:col-span-5 sticky top-20">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-md overflow-hidden">
+              
+              {/* Mode Switcher */}
+              <div className="grid grid-cols-2 border-b border-slate-200 text-center text-xs font-bold uppercase tracking-wider">
+                <button
+                  type="button"
+                  className={`py-3.5 border-b-2 transition-colors ${
+                    consultationMode === "visit"
+                      ? "border-emerald-600 text-emerald-800 bg-emerald-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                  onClick={() => setConsultationMode("visit")}
+                >
+                  In-Clinic OPD
+                </button>
+                <button
+                  type="button"
+                  className={`py-3.5 border-b-2 transition-colors ${
+                    consultationMode === "online"
+                      ? "border-sky-600 text-sky-800 bg-sky-50/50"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                  onClick={() => setConsultationMode("online")}
+                >
+                  Video Telehealth
+                </button>
+              </div>
+
+              <div className="p-5 space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <span className="font-bold text-sm text-slate-800">
+                    {consultationMode === "visit" ? "Hospital In-Person Slot" : "Telehealth Video Window"}
+                  </span>
+                  <span className="text-2xl font-black text-slate-900">₹{fee}</span>
+                </div>
+
+                {/* Date Selectors */}
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-slate-700">Select Date</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {DATES.map((d, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`h-16 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                          selectedDateIndex === idx
+                            ? "bg-slate-900 border-slate-900 text-white font-bold shadow-xs"
+                            : "border-slate-200 text-slate-700 hover:border-slate-300 font-medium bg-white"
+                        }`}
+                        onClick={() => setSelectedDateIndex(idx)}
+                      >
+                        <span className={`text-[10px] uppercase ${selectedDateIndex === idx ? "text-slate-300" : "text-slate-400"}`}>
+                          {d.day}
+                        </span>
+                        <span className="text-lg leading-tight">{d.date}</span>
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-xs font-semibold">Email *</Label>
-                    <Input
-                      id="email"
-                      required
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleChange("email", e.target.value)}
-                    />
+                {/* Time Slots Grid */}
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-slate-700">Available Consultation Slots</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {slots.map((slot) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        className={`py-2 px-1 text-[11px] rounded-lg border transition-all ${
+                          selectedSlot === slot
+                            ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold shadow-xs"
+                            : "border-slate-200 text-slate-700 hover:border-slate-300 bg-white"
+                        }`}
+                        onClick={() => setSelectedSlot(slot)}
+                      >
+                        {slot}
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Specialist Doctor</Label>
-                      <Input value={formData.doctor} disabled className="bg-muted text-xs font-medium" />
-                    </div>
+                {/* Action CTA */}
+                <Button
+                  onClick={handleSchedule}
+                  className="w-full h-12 bg-slate-900 hover:bg-sky-900 text-white font-bold rounded-xl shadow-md text-sm"
+                >
+                  Lock Slot & Proceed to Pay
+                </Button>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Date *</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn("w-full justify-start text-xs font-normal", !date && "text-muted-foreground")}
-                          >
-                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                            {date ? format(date, "PPP") : <span>Pick Date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={setDate}
-                            disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Time Slot *</Label>
-                    <Select value={formData.timeSlot} onValueChange={(val) => handleChange("timeSlot", val)}>
-                      <SelectTrigger className="text-xs">
-                        <SelectValue placeholder="Select slot" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="09:00 AM">09:00 AM (Morning)</SelectItem>
-                        <SelectItem value="10:00 AM">10:00 AM (Morning)</SelectItem>
-                        <SelectItem value="02:00 PM">02:00 PM (Afternoon)</SelectItem>
-                        <SelectItem value="04:30 PM">04:30 PM (Evening)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="symptoms" className="text-xs font-semibold">Symptoms (Optional)</Label>
-                    <Textarea
-                      id="symptoms"
-                      rows={2}
-                      placeholder="Brief details about your symptoms..."
-                      value={formData.symptoms}
-                      onChange={(e) => handleChange("symptoms", e.target.value)}
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                    Confirm OPD Appointment
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 pt-1">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Instant Verified Digital OPD Pass</span>
+                </div>
+              </div>
+            </div>
           </div>
+
         </div>
       </main>
 

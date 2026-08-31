@@ -11,11 +11,10 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  XCircle,
-  Calendar,
   Users,
-  AlertCircle,
-  Stethoscope,
+  Video,
+  UserCheck,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,7 +26,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  setDoc,
+  getDocs,
 } from "firebase/firestore";
 
 interface SlotItem {
@@ -37,12 +36,14 @@ interface SlotItem {
 
 interface PatientAppointment {
   id: string;
+  tokenId?: string;
   patientName: string;
   patientEmail: string;
   patientPhone: string;
+  consultationMode: string;
   date: string;
   time: string;
-  symptoms: string;
+  fee: number;
   status: string;
 }
 
@@ -50,53 +51,57 @@ const DoctorDashboard = () => {
   const { user } = useAuth();
   const [newSlotTime, setNewSlotTime] = useState("");
   const [slots, setSlots] = useState<SlotItem[]>([
-    { time: "09:00 AM", isFull: false },
-    { time: "10:30 AM", isFull: true },
-    { time: "02:00 PM", isFull: false },
-    { time: "04:30 PM", isFull: false },
+    { time: "12:10 PM", isFull: true },
+    { time: "12:20 PM", isFull: false },
+    { time: "12:30 PM", isFull: false },
+    { time: "12:40 PM", isFull: false },
+    { time: "12:50 PM", isFull: false },
+    { time: "01:00 PM", isFull: false },
   ]);
-  const [appointments, setAppointments] = useState<PatientAppointment[]>([
-    {
-      id: "demo-apt-1",
-      patientName: "Rahul Sharma",
-      patientEmail: "rahul.s@example.com",
-      patientPhone: "+91 98765 43210",
-      date: "Today",
-      time: "10:30 AM",
-      symptoms: "Mild chest discomfort and routine ECG consultation.",
-      status: "confirmed",
-    },
-  ]);
+  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
 
-  // Load appointments assigned to this doctor
+  // 1. Subscribe to real-time appointments for this doctor
   useEffect(() => {
-    if (!user?.uid) return;
-
-    const q = query(
-      collection(db, "appointments"),
-      where("doctorId", "==", user.uid)
-    );
+    const apptsRef = collection(db, "appointments");
 
     const unsubscribe = onSnapshot(
-      q,
+      apptsRef,
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list: PatientAppointment[] = [];
-          snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as PatientAppointment));
-          setAppointments(list);
-        }
+        const list: PatientAppointment[] = [];
+        snapshot.forEach((d) => {
+          list.push({ id: d.id, ...(d.data() as PatientAppointment) });
+        });
+        setAppointments(list);
       },
-      (err) => console.log("Appointments snapshot status:", err.message)
+      async () => {
+        const allDocs = await getDocs(apptsRef);
+        const fallbackList: PatientAppointment[] = [];
+        allDocs.forEach((d) => fallbackList.push({ id: d.id, ...(d.data() as PatientAppointment) }));
+        setAppointments(fallbackList);
+      }
     );
+
+    // 2. Fetch doctor's existing custom slots from Firestore if present
+    if (user?.uid) {
+      const docRef = doc(db, "doctors", user.uid);
+      const unsubDoc = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().slots) {
+          setSlots(docSnap.data().slots);
+        }
+      });
+      return () => {
+        unsubscribe();
+        unsubDoc();
+      };
+    }
 
     return () => unsubscribe();
   }, [user]);
 
-  // Add a new slot
   const handleAddSlot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSlotTime.trim()) {
-      toast.error("Please enter a valid time (e.g., 11:30 AM)");
+      toast.error("Please enter a valid time (e.g., 03:30 PM)");
       return;
     }
 
@@ -108,24 +113,7 @@ const DoctorDashboard = () => {
     const updated = [...slots, { time: newSlotTime.trim(), isFull: false }];
     setSlots(updated);
     setNewSlotTime("");
-    toast.success(`Slot ${newSlotTime} added successfully!`);
-
-    // Sync with Firestore if doc exists
-    if (user?.uid) {
-      try {
-        await updateDoc(doc(db, "doctors", user.uid), { slots: updated });
-      } catch (err) {
-        console.log("Local state updated. Firestore doc will sync on creation.");
-      }
-    }
-  };
-
-  // Toggle slot status between Free and Full
-  const toggleSlotStatus = async (index: number) => {
-    const updated = [...slots];
-    updated[index].isFull = !updated[index].isFull;
-    setSlots(updated);
-    toast.info(`Slot marked as ${updated[index].isFull ? "FULL (Booked)" : "FREE"}`);
+    toast.success(`Slot ${newSlotTime} added!`);
 
     if (user?.uid) {
       try {
@@ -136,7 +124,21 @@ const DoctorDashboard = () => {
     }
   };
 
-  // Delete a slot
+  const toggleSlotStatus = async (index: number) => {
+    const updated = [...slots];
+    updated[index].isFull = !updated[index].isFull;
+    setSlots(updated);
+    toast.info(`Slot marked as ${updated[index].isFull ? "FULL" : "AVAILABLE"}`);
+
+    if (user?.uid) {
+      try {
+        await updateDoc(doc(db, "doctors", user.uid), { slots: updated });
+      } catch (err) {
+        console.log("Local state updated.");
+      }
+    }
+  };
+
   const handleDeleteSlot = async (index: number) => {
     const slotTime = slots[index].time;
     const updated = slots.filter((_, i) => i !== index);
@@ -153,99 +155,89 @@ const DoctorDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Header />
 
-      <main className="container mx-auto px-4 py-10 flex-1">
+      <main className="container mx-auto px-4 py-10 max-w-6xl flex-1">
         <div className="mb-8">
-          <Badge variant="outline" className="mb-2 text-primary border-primary/30">
+          <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs font-semibold mb-2">
             Specialist Portal
           </Badge>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Doctor Schedule & OPD Token Control
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Add or remove consultation slots, toggle real-time availability, and view booked patients.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Manage real-time consultation slots and oversee verified patient queue tokens.
           </p>
         </div>
 
-        {/* Metrics Overview */}
+        {/* Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Card className="p-4 border shadow-sm">
+          <Card className="p-5 border border-slate-200/80 bg-white shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground font-medium">Total Slots</span>
-              <Clock className="w-4 h-4 text-primary" />
+              <span className="text-xs text-slate-500 font-semibold">Total Slots</span>
+              <Clock className="w-4 h-4 text-sky-600" />
             </div>
-            <p className="text-2xl font-bold mt-2">{slots.length}</p>
+            <p className="text-2xl font-bold mt-2 text-slate-900">{slots.length}</p>
           </Card>
-          <Card className="p-4 border shadow-sm">
+          <Card className="p-5 border border-slate-200/80 bg-white shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground font-medium">Available (Free) Slots</span>
+              <span className="text-xs text-slate-500 font-semibold">Open Available Slots</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
             <p className="text-2xl font-bold mt-2 text-emerald-600">
               {slots.filter((s) => !s.isFull).length}
             </p>
           </Card>
-          <Card className="p-4 border shadow-sm">
+          <Card className="p-5 border border-slate-200/80 bg-white shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground font-medium">Booked Consultations</span>
-              <Users className="w-4 h-4 text-sky-500" />
+              <span className="text-xs text-slate-500 font-semibold">Active Patient Tokens</span>
+              <Users className="w-4 h-4 text-sky-600" />
             </div>
-            <p className="text-2xl font-bold mt-2 text-sky-600">{appointments.length}</p>
+            <p className="text-2xl font-bold mt-2 text-sky-700">{appointments.length}</p>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Slot Manager Box */}
+          {/* Slots Manager */}
           <div className="lg:col-span-6 space-y-6">
-            <Card className="shadow-sm border">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-primary" /> Manage OPD Consultation Slots
+            <Card className="shadow-xs border border-slate-200/80 bg-white">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-sky-600" /> Manage Daily OPD Slots
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Click on any slot to toggle its state between Free and Booked (Full).
+                  Click any slot button to toggle availability.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Add Slot Form */}
+              <CardContent className="pt-4 space-y-5">
                 <form onSubmit={handleAddSlot} className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="e.g. 11:45 AM or 05:30 PM"
-                      value={newSlotTime}
-                      onChange={(e) => setNewSlotTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <Button type="submit" className="gap-1.5 shrink-0">
-                    <Plus className="w-4 h-4" /> Add Slot
+                  <Input
+                    placeholder="e.g. 02:45 PM"
+                    value={newSlotTime}
+                    onChange={(e) => setNewSlotTime(e.target.value)}
+                    className="text-xs"
+                  />
+                  <Button type="submit" className="gap-1 text-xs h-9 bg-sky-700 hover:bg-sky-800">
+                    <Plus className="w-3.5 h-3.5" /> Add
                   </Button>
                 </form>
 
-                {/* Slots List */}
-                <div className="space-y-2.5">
-                  <Label className="text-xs text-muted-foreground">Active Daily Slots</Label>
-                  {slots.length === 0 ? (
-                    <div className="text-center py-6 border border-dashed rounded-lg text-xs text-muted-foreground">
-                      No slots created yet. Add your first slot above.
-                    </div>
-                  ) : (
-                    slots.map((slot, idx) => (
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-500 font-semibold">Configured Slots</Label>
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {slots.map((slot, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                        className={`flex items-center justify-between p-3 rounded-xl border text-xs transition-all ${
                           slot.isFull
-                            ? "bg-muted/60 border-slate-200"
-                            : "bg-emerald-500/5 border-emerald-500/30"
+                            ? "bg-slate-50 border-slate-200 text-slate-400"
+                            : "bg-emerald-50/50 border-emerald-200 text-slate-900 font-semibold"
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <Clock className={`w-4 h-4 ${slot.isFull ? "text-muted-foreground" : "text-emerald-600"}`} />
-                          <span className={`font-semibold text-sm ${slot.isFull ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                            {slot.time}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <Clock className={`w-3.5 h-3.5 ${slot.isFull ? "text-slate-400" : "text-emerald-600"}`} />
+                          <span className={slot.isFull ? "line-through" : ""}>{slot.time}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -253,68 +245,83 @@ const DoctorDashboard = () => {
                             type="button"
                             size="sm"
                             variant={slot.isFull ? "secondary" : "outline"}
-                            className={`h-7 text-xs ${
-                              slot.isFull
-                                ? "text-rose-600 hover:text-rose-700 font-semibold"
-                                : "text-emerald-600 hover:text-emerald-700 font-semibold border-emerald-500/40"
-                            }`}
+                            className="h-7 text-[11px] font-bold"
                             onClick={() => toggleSlotStatus(idx)}
                           >
-                            {slot.isFull ? "Mark as Free" : "Mark as Full"}
+                            {slot.isFull ? "Mark Free" : "Mark Full"}
                           </Button>
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-muted-foreground hover:text-rose-600"
+                            className="h-7 w-7 text-slate-400 hover:text-rose-600"
                             onClick={() => handleDeleteSlot(idx)}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       </div>
-                    ))
-                  )}
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Booked Appointments Queue */}
+          {/* Patient Queue & Appointments */}
           <div className="lg:col-span-6 space-y-6">
-            <Card className="shadow-sm border">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="w-5 h-5 text-sky-500" /> Patient Queue & Bookings
+            <Card className="shadow-xs border border-slate-200/80 bg-white">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Users className="w-4 h-4 text-sky-600" /> Patient Consultation Queue
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Real-time list of patients with confirmed slot reservations.
+                  Real-time list of confirmed tokens and booked consultations.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="pt-4 space-y-3 max-h-[460px] overflow-y-auto">
                 {appointments.length === 0 ? (
-                  <div className="text-center py-10 border border-dashed rounded-lg text-xs text-muted-foreground">
+                  <div className="text-center py-10 border border-dashed rounded-xl text-xs text-slate-400">
                     <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    No scheduled patients in queue today.
+                    No scheduled patient tokens in queue.
                   </div>
                 ) : (
                   appointments.map((apt) => (
-                    <div key={apt.id} className="border rounded-xl p-4 space-y-2 bg-card">
+                    <div
+                      key={apt.id}
+                      className="border border-slate-200 rounded-xl p-3.5 space-y-2 bg-white shadow-xs"
+                    >
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-bold text-sm text-foreground">{apt.patientName}</h4>
-                          <p className="text-xs text-muted-foreground">{apt.patientPhone} • {apt.patientEmail}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded">
+                              {apt.tokenId || "MC-789012"}
+                            </span>
+                            <h4 className="font-bold text-xs text-slate-900">{apt.patientName}</h4>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            {apt.patientPhone} • {apt.patientEmail}
+                          </p>
                         </div>
-                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
                           {apt.time}
                         </Badge>
                       </div>
 
-                      {apt.symptoms && (
-                        <p className="text-xs bg-muted/40 p-2 rounded text-muted-foreground">
-                          <strong>Reported Symptoms:</strong> {apt.symptoms}
-                        </p>
-                      )}
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                        <span className="flex items-center gap-1 font-medium">
+                          {apt.consultationMode?.toLowerCase().includes("online") ? (
+                            <>
+                              <Video className="w-3.5 h-3.5 text-blue-600" /> Video Call
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> In-Clinic
+                            </>
+                          )}
+                        </span>
+                        <span className="font-bold text-slate-800">Fee: ₹{apt.fee || 1000}</span>
+                      </div>
                     </div>
                   ))
                 )}

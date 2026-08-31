@@ -1,8 +1,18 @@
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Calendar, MapPin, Clock, Building2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import {
+  Building2,
+  Star,
+  ShieldCheck,
+  Video,
+  UserCheck,
+  Clock,
+  MapPin,
+  CalendarCheck,
+  ChevronRight,
+  Languages,
+} from "lucide-react";
 
 export interface DoctorSlot {
   time: string;
@@ -12,15 +22,19 @@ export interface DoctorSlot {
 export interface DoctorCardProps {
   id: string;
   name: string;
+  gender?: "male" | "female";
   specialty: string;
   hospital: string;
   experienceYears: number;
-  rating: number;
-  reviewsCount: number;
+  rating?: number;
+  reviewsCount?: number;
   fee: number;
-  distanceKm: number;
-  avatar: string;
-  slots: DoctorSlot[];
+  distanceKm?: number;
+  avatar?: string;
+  degrees?: string;
+  languages?: string[];
+  consultationType?: "online" | "in-person" | "both";
+  slots?: DoctorSlot[];
 }
 
 const DoctorCard = ({
@@ -29,110 +43,128 @@ const DoctorCard = ({
   specialty,
   hospital,
   experienceYears,
-  rating,
-  reviewsCount,
+  rating = 4.9,
+  reviewsCount = 120,
   fee,
-  distanceKm,
-  avatar,
+  distanceKm = 2.4,
+  avatar = "/hero-doctor.png",
+  degrees = "MBBS, MD",
+  languages = ["English", "Hindi"],
+  consultationType = "both",
   slots = [],
 }: DoctorCardProps) => {
   const freeSlots = slots.filter((s) => !s.isFull);
-  const isAvailable = freeSlots.length > 0;
+  const nextAvailableSlot = freeSlots.length > 0 ? freeSlots[0].time : null;
 
   return (
-    <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden border flex flex-col justify-between">
-      <div>
-        {/* Card Header Media */}
-        <div className="relative h-44 overflow-hidden bg-slate-100">
-          <img
-            src={avatar}
-            alt={name}
-            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400";
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden group">
+      {/* Top Banner Accent */}
+      <div className="bg-slate-900 px-5 py-2 flex items-center justify-between text-xs text-slate-300">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-medium tracking-wide">Live Token Queue Active</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+          <span>{distanceKm} km away</span>
+        </div>
+      </div>
 
-          {/* Availability Badge */}
-          <Badge
-            className={`absolute top-3 right-3 shadow-md ${
-              isAvailable
-                ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-                : "bg-rose-500 hover:bg-rose-600 text-white"
-            }`}
-          >
-            {isAvailable ? `${freeSlots.length} Slots Open` : "Fully Booked"}
-          </Badge>
+      <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        {/* Doctor Identity & Clinical Info */}
+        <div className="flex items-start gap-4 flex-1">
+          <div className="relative shrink-0">
+            <img
+              src={avatar || "/hero-doctor.png"}
+              alt={name}
+              className="w-20 h-20 md:w-24 md:h-24 rounded-2xl object-cover object-top border border-slate-100 bg-slate-50 shadow-inner"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/hero-doctor.png";
+              }}
+            />
+            <div className="absolute -bottom-2 -right-1.5 bg-emerald-600 text-white p-1 rounded-lg border-2 border-white shadow-xs" title="Verified Practitioner">
+              <ShieldCheck className="w-3.5 h-3.5" />
+            </div>
+          </div>
 
-          {/* Distance Indicator */}
-          <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur text-white text-[11px] font-medium px-2.5 py-1 rounded-md flex items-center gap-1">
-            <MapPin className="w-3 h-3 text-sky-400" />
-            <span>{distanceKm} km away</span>
+          <div className="space-y-1.5 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-bold text-lg text-slate-900 group-hover:text-sky-700 transition-colors">
+                {name}
+              </h3>
+              <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-200 text-[10px] font-semibold px-2 py-0.5">
+                {specialty}
+              </Badge>
+            </div>
+
+            <p className="text-xs font-medium text-slate-600">
+              {degrees} <span className="text-slate-400">•</span> <span className="font-semibold text-slate-800">{experienceYears}+ Yrs Practice</span>
+            </p>
+
+            <div className="flex items-center gap-3 text-xs text-slate-500 pt-0.5 flex-wrap">
+              <span className="flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="font-medium text-slate-700">{hospital}</span>
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1 font-semibold text-amber-600">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                {rating} <span className="text-slate-400 font-normal">({reviewsCount})</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-500">
+              <Languages className="w-3.5 h-3.5 text-slate-400" />
+              <span>{languages.join(", ")}</span>
+            </div>
           </div>
         </div>
 
-        {/* Doctor Details */}
-        <CardContent className="p-5 space-y-3">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded">
-                <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {rating} ({reviewsCount})
-              </span>
-              <span className="text-sm font-bold text-foreground">₹{fee}</span>
-            </div>
-
-            <h3 className="font-bold text-lg text-foreground mt-1.5 leading-snug">{name}</h3>
-            <p className="text-xs font-semibold text-primary">{specialty} • {experienceYears}+ yrs exp</p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
-              <Building2 className="w-3.5 h-3.5" /> {hospital}
-            </p>
+        {/* Action Panel: Availability & Direct Booking CTA */}
+        <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 gap-3 shrink-0">
+          <div className="text-left md:text-right">
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-medium">Consultation Fee</span>
+            <span className="text-2xl font-black text-slate-900">₹{fee}</span>
           </div>
 
-          {/* Slot Preview Pills */}
-          <div className="pt-2 border-t text-xs">
-            <p className="text-muted-foreground mb-1.5 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-primary" /> Today's Slot Status:
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {slots.slice(0, 3).map((slot, idx) => (
-                <span
-                  key={idx}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium ${
-                    slot.isFull
-                      ? "bg-muted text-muted-foreground line-through"
-                      : "bg-emerald-500/10 text-emerald-700 border border-emerald-500/30"
-                  }`}
-                >
-                  {slot.time}
-                </span>
-              ))}
-              {slots.length > 3 && (
-                <span className="text-[10px] text-muted-foreground self-center">
-                  +{slots.length - 3} more
+          <Link
+            to={`/book?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&specialty=${encodeURIComponent(
+              specialty
+            )}&fee=${fee}&hospital=${encodeURIComponent(hospital)}&avatar=${encodeURIComponent(avatar || "/hero-doctor.png")}`}
+            className="w-auto"
+          >
+            <Button className="bg-slate-900 hover:bg-sky-800 text-white font-semibold px-5 h-11 rounded-xl flex items-center gap-2 shadow-xs text-xs">
+              <CalendarCheck className="w-4 h-4 text-emerald-400" />
+              <span>Book Appointment</span>
+              {nextAvailableSlot && (
+                <span className="bg-slate-800 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-mono">
+                  {nextAvailableSlot}
                 </span>
               )}
-            </div>
-          </div>
-        </CardContent>
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Action CTA */}
-      <CardFooter className="p-5 pt-0">
-        <Link
-          to={`/book?doctor=${id}&name=${encodeURIComponent(name)}&specialty=${encodeURIComponent(
-            specialty
-          )}`}
-          className="w-full"
-        >
-          <Button className="w-full font-medium" disabled={!isAvailable}>
-            <Calendar className="w-4 h-4 mr-2" />
-            {isAvailable ? "Book Consultation" : "No Slots Available"}
-          </Button>
-        </Link>
-      </CardFooter>
-    </Card>
+      {/* Mode Indicator Footer */}
+      <div className="bg-slate-50 border-t border-slate-100 px-5 py-2.5 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-3">
+          {consultationType !== "in-person" && (
+            <span className="inline-flex items-center gap-1 text-sky-700 font-medium text-[11px]">
+              <Video className="w-3.5 h-3.5" /> Video Teleconsultation
+            </span>
+          )}
+          {consultationType !== "online" && (
+            <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-[11px]">
+              <UserCheck className="w-3.5 h-3.5" /> In-Clinic Hospital Visit
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] text-slate-500 font-medium">
+          {freeSlots.length > 0 ? `${freeSlots.length} open slots today` : "No slots open today"}
+        </span>
+      </div>
+    </div>
   );
 };
 
