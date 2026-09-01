@@ -28,6 +28,9 @@ import BloodBanks from "./pages/BloodBanks";
 import HospitalDashboard from "./pages/HospitalDashBoard";
 import BloodBankDashboard from "./pages/BloodBankDashboard";
 
+// Emergency & Tracking
+import AmbulanceTracker from "./pages/AmbulanceTracker";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -50,6 +53,7 @@ const App = () => (
             <Route path="/doctors" element={<Doctors />} />
             <Route path="/hospitals" element={<Hospitals />} />
             <Route path="/bloodbanks" element={<BloodBanks />} />
+            <Route path="/ambulance" element={<AmbulanceTracker />} />
             <Route path="/developer" element={<Developer />} />
 
             {/* OPD & Patient Routes */}
